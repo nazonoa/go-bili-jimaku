@@ -1,18 +1,20 @@
 // ==UserScript==
 // @name         go-bili-jimaku
-// @namespace    https://raw.githubusercontent.com/nazonoa/go-bili-jimaku
-// @version      1.0.0
+// @namespace    https://github.com/nazonoa/go-bili-jimaku
+// @version      1.1.0
 // @description  bilibili任意视频挂载外部字幕
 // @author       siianchan@foxmail.com
 // @updateURL    https://raw.githubusercontent.com/nazonoa/go-bili-jimaku/main/go-bili-jimaku.js
 // @downloadURL  https://raw.githubusercontent.com/nazonoa/go-bili-jimaku/main/go-bili-jimaku.js
 // @run-at       document-idle
 // @match        https://www.bilibili.com/video/*
+// @license      GPL-3.0
 // @icon         data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNzMzOTg0ODg5OTk3IiBjbGFzcz0iaWNvbiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjQ1NDQiIGlkPSJteF9uXzE3MzM5ODQ4ODk5OTciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiPjxwYXRoIGQ9Ik0xMDA0LjY5NjUzNiA4ODguMDQ0NDg1TDU3NC45NjUzMzQgNTAuNDQzNTU4YTkyLjgwODE1MSA5Mi44MDgxNTEgMCAwIDAtMTY2LjY3MTY1NCAzLjEwODMzNkwxNy4zMzU2NjIgODkxLjE1MjgyMmE5Mi44MDgxNTEgOTIuODA4MTUxIDAgMSAwIDE2OC4xODg5OTMgNzguNTAzOTFsMzEwLjgzMzY0OS02NjUuODYxNjU0TDcwMy45MjQ0NyA3MDguNDIzODg1SDUyNC42NDI2OTJhOTIuODA4MTUxIDkyLjgwODE1MSAwIDAgMCAwIDE4NS42MTYzMDFoMjI2LjExMzA2NWE5Mi4zNjYyMDcgOTIuMzY2MjA3IDAgMCAwIDQzLjAzMDU3My0xMC41NjI0NTFsNDUuODE0ODE3IDg5LjMwMjA2NWE5Mi44MDgxNTEgOTIuODA4MTUxIDAgMSAwIDE2NS4xNTQzMTUtODQuNzM1MzE1eiIgZmlsbD0iI2ZiNzI5OSIgcC1pZD0iNDU0NSI+PC9wYXRoPjwvc3ZnPg==
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @note         24-12-16 1.1.0 新增字幕轴整体延时调整功能
 // @note         24-12-12 1.0.0 初版发布
 // ==/UserScript==
 
@@ -24,6 +26,7 @@
   const jimakuId = getJimakuId();
   const host = "https://vsub.cn/jimaku-api";
   var jimakuSize = GM_getValue("jimaku-size") || "18";
+  var jimakuDelay = GM_getValue("jimaku-delay") || "-1";
   var jimakuData = {};
   var lastIndex = -1;
   var lastTime = 0;
@@ -159,7 +162,6 @@
     jimaku.style.fontSize = jimakuSize + "px";
     const playerContainer = document.querySelector(".bpx-player-container");
     const observer = new MutationObserver((mutationsList) => {
-      console.log(mutationsList);
       mutationsList.forEach((mutation) => {
         if (
           mutation.type === "attributes" &&
@@ -210,21 +212,38 @@
     });
     const jimakuSizeShow = document.createElement("span");
     jimakuSizeShow.textContent = jimakuSize + "px";
-    const inputRange = document.createElement("input");
-    inputRange.type = "range";
-    inputRange.min = "12";
-    inputRange.max = "30";
-    inputRange.value = jimakuSize;
+    const fontSizeRange = document.createElement("input");
+    fontSizeRange.type = "range";
+    fontSizeRange.min = "12";
+    fontSizeRange.max = "30";
+    fontSizeRange.value = jimakuSize;
     const jimaku = document.getElementById("jimaku");
-    inputRange.addEventListener("input", () => {
-      const fontSize = inputRange.value + "px";
+    fontSizeRange.addEventListener("input", () => {
+      const fontSize = fontSizeRange.value + "px";
       jimakuSizeShow.textContent = fontSize;
       jimaku.style.fontSize = fontSize;
-      GM_setValue("jimaku-size", inputRange.value);
+      GM_setValue("jimaku-size", fontSizeRange.value);
+    });
+
+    const delayTimeShow = document.createElement("span");
+    delayTimeShow.textContent = jimakuDelay + "s";
+    const delayTimeRange = document.createElement("input");
+    delayTimeRange.type = "range";
+    delayTimeRange.min = "-3";
+    delayTimeRange.step = "0.2";
+    delayTimeRange.style.marginLeft = "20px";
+    delayTimeRange.max = "3";
+    delayTimeRange.value = jimakuDelay;
+    delayTimeRange.addEventListener("input", () => {
+      const delayTimeRangeValue = delayTimeRange.value;
+      delayTimeShow.textContent = delayTimeRangeValue + "s";
+      GM_setValue("jimaku-delay", delayTimeRangeValue);
     });
     buttonGroup.appendChild(turn);
-    buttonGroup.appendChild(inputRange);
+    buttonGroup.appendChild(fontSizeRange);
     buttonGroup.appendChild(jimakuSizeShow);
+    buttonGroup.appendChild(delayTimeRange);
+    buttonGroup.appendChild(delayTimeShow);
     addElement.insertAdjacentElement("afterend", buttonGroup);
   }
 
@@ -254,7 +273,9 @@
       "#bilibili-player > div > div > div.bpx-player-primary-area > div.bpx-player-video-area > div.bpx-player-video-perch > div > video"
     );
     player.addEventListener("timeupdate", () => {
-      const currentTime = player.currentTime;
+      console.log("====" + player.currentTime);
+      const currentTime = player.currentTime - parseFloat(jimakuDelay);
+      console.log("----" + currentTime);
       const timeJumpThreshold = 1.0;
       if (Math.abs(currentTime - lastTime) > timeJumpThreshold) {
         lastIndex = -1;
