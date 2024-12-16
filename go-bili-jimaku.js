@@ -4,8 +4,8 @@
 // @version      1.0.0
 // @description  bilibili任意视频挂载外部字幕
 // @author       siianchan@foxmail.com
-// @updateURL    https://raw.githubusercontent.com/nazonoa/go-bili-jimaku/main/script/go-bili-jimaku.js
-// @downloadURL  https://raw.githubusercontent.com/nazonoa/go-bili-jimaku/main/script/go-bili-jimaku.js
+// @updateURL    https://raw.githubusercontent.com/nazonoa/go-bili-jimaku/main/go-bili-jimaku.js
+// @downloadURL  https://raw.githubusercontent.com/nazonoa/go-bili-jimaku/main/go-bili-jimaku.js
 // @run-at       document-idle
 // @match        https://www.bilibili.com/video/*
 // @icon         data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNzMzOTg0ODg5OTk3IiBjbGFzcz0iaWNvbiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjQ1NDQiIGlkPSJteF9uXzE3MzM5ODQ4ODk5OTciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiPjxwYXRoIGQ9Ik0xMDA0LjY5NjUzNiA4ODguMDQ0NDg1TDU3NC45NjUzMzQgNTAuNDQzNTU4YTkyLjgwODE1MSA5Mi44MDgxNTEgMCAwIDAtMTY2LjY3MTY1NCAzLjEwODMzNkwxNy4zMzU2NjIgODkxLjE1MjgyMmE5Mi44MDgxNTEgOTIuODA4MTUxIDAgMSAwIDE2OC4xODg5OTMgNzguNTAzOTFsMzEwLjgzMzY0OS02NjUuODYxNjU0TDcwMy45MjQ0NyA3MDguNDIzODg1SDUyNC42NDI2OTJhOTIuODA4MTUxIDkyLjgwODE1MSAwIDAgMCAwIDE4NS42MTYzMDFoMjI2LjExMzA2NWE5Mi4zNjYyMDcgOTIuMzY2MjA3IDAgMCAwIDQzLjAzMDU3My0xMC41NjI0NTFsNDUuODE0ODE3IDg5LjMwMjA2NWE5Mi44MDgxNTEgOTIuODA4MTUxIDAgMSAwIDE2NS4xNTQzMTUtODQuNzM1MzE1eiIgZmlsbD0iI2ZiNzI5OSIgcC1pZD0iNDU0NSI+PC9wYXRoPjwvc3ZnPg==
