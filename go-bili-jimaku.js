@@ -26,7 +26,7 @@
   const jimakuId = getJimakuId();
   const host = "https://vsub.cn/jimaku-api";
   var jimakuSize = GM_getValue("jimaku-size") || "18";
-  var jimakuDelay = GM_getValue("jimaku-delay") || "-1";
+  var jimakuDelay = GM_getValue("jimaku-delay") || "0";
   var jimakuData = {};
   var lastIndex = -1;
   var lastTime = 0;
