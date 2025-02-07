@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         go-bili-jimaku
 // @namespace    https://github.com/nazonoa/go-bili-jimaku
-// @version      1.1.0
+// @version      1.2.0
 // @description  bilibili任意视频挂载外部字幕
 // @author       siianchan@foxmail.com
 // @updateURL    https://raw.githubusercontent.com/nazonoa/go-bili-jimaku/main/go-bili-jimaku.js
 // @downloadURL  https://raw.githubusercontent.com/nazonoa/go-bili-jimaku/main/go-bili-jimaku.js
-// @run-at       document-idle
+// @run-at       document-body
 // @match        https://www.bilibili.com/video/*
 // @license      GPL-3.0
 // @icon         data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNzMzOTg0ODg5OTk3IiBjbGFzcz0iaWNvbiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjQ1NDQiIGlkPSJteF9uXzE3MzM5ODQ4ODk5OTciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiPjxwYXRoIGQ9Ik0xMDA0LjY5NjUzNiA4ODguMDQ0NDg1TDU3NC45NjUzMzQgNTAuNDQzNTU4YTkyLjgwODE1MSA5Mi44MDgxNTEgMCAwIDAtMTY2LjY3MTY1NCAzLjEwODMzNkwxNy4zMzU2NjIgODkxLjE1MjgyMmE5Mi44MDgxNTEgOTIuODA4MTUxIDAgMSAwIDE2OC4xODg5OTMgNzguNTAzOTFsMzEwLjgzMzY0OS02NjUuODYxNjU0TDcwMy45MjQ0NyA3MDguNDIzODg1SDUyNC42NDI2OTJhOTIuODA4MTUxIDkyLjgwODE1MSAwIDAgMCAwIDE4NS42MTYzMDFoMjI2LjExMzA2NWE5Mi4zNjYyMDcgOTIuMzY2MjA3IDAgMCAwIDQzLjAzMDU3My0xMC41NjI0NTFsNDUuODE0ODE3IDg5LjMwMjA2NWE5Mi44MDgxNTEgOTIuODA4MTUxIDAgMSAwIDE2NS4xNTQzMTUtODQuNzM1MzE1eiIgZmlsbD0iI2ZiNzI5OSIgcC1pZD0iNDU0NSI+PC9wYXRoPjwvc3ZnPg==
@@ -14,22 +14,29 @@
 // @grant        GM_addStyle
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @note         24-12-25 1.2.0 优化字幕加载逻辑,字幕移动到视频下方,进入视频后自动暂停视频
 // @note         24-12-16 1.1.0 新增字幕轴整体延时调整功能
 // @note         24-12-12 1.0.0 初版发布
 // ==/UserScript==
 
 (function () {
   "use strict";
-  console.info("加载脚本--go-bilibili-jimaku--");
+  console.log("加载脚本--go-bilibili-jimaku--");
   const language = navigator.language;
-  const bvid = getBvid();
   const jimakuId = getJimakuId();
   const host = "https://vsub.cn/jimaku-api";
-  var jimakuSize = GM_getValue("jimaku-size") || "18";
-  var jimakuDelay = GM_getValue("jimaku-delay") || "0";
-  var jimakuData = {};
-  var lastIndex = -1;
-  var lastTime = 0;
+  let jimakuSize = GM_getValue("jimaku-size") || "18";
+  let jimakuDelay = "0";
+  let jimakuData = {};
+  let lastIndex = -1;
+  let lastTime = 0;
+  let count = 0;
+  let playerVideo;
+  let jimaku;
+  let jimakuWrap;
+  let newTitleTrans;
+  let buttonGroup;
+  let switchInput;
   let css = `
     #trans-title {
       color: #95a5a6;
@@ -41,15 +48,17 @@
       border-radius: 2px;
       font-size: 18px;
       line-height: 1.6;
+      font-weight: bold;
       color: white;
-      background-color: rgba(0, 0, 0, 0.4);
+      border-radius: 5px;
+      background-color: rgba(0, 0, 0, 0.5);
     }
     #jimaku:empty {
       visibility: hidden;
     }
     #jimaku-wrap {
       width: 80%;
-      top: 15px;
+      bottom: 20px;
       position: absolute;
       text-align: center;
       z-index: 100;
@@ -89,7 +98,7 @@
   `;
   GM_addStyle(css);
   function ajaxGet(url, onSuccess, onError) {
-    var xhr = new XMLHttpRequest();
+    let xhr = new XMLHttpRequest();
     xhr.open("GET", url, true);
     xhr.onreadystatechange = function () {
       if (xhr.readyState === 4) {
@@ -102,11 +111,34 @@
     };
     xhr.send();
   }
-  const loading = setInterval(() => {
-    const search = document.querySelector(
-      "#nav-searchform > div.nav-search-content"
-    );
-    if (search) {
+  function getJimakuId() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get("jimakuId");
+  }
+  function getBvid() {
+    const match = window.location.href.match(/\/video\/(BV\w+)\//);
+    return match ? match[1] : "";
+  }
+  function findSubtitleIndex(currentTime) {
+    let left = 0;
+    let right = jimakuData.detail.length - 1;
+    while (left <= right) {
+      const mid = Math.floor((left + right) / 2);
+      const item = jimakuData.detail[mid];
+      if (currentTime >= item.s && currentTime <= item.e) {
+        return mid;
+      } else if (currentTime < item.s) {
+        right = mid - 1;
+      } else {
+        left = mid + 1;
+      }
+    }
+    return -1;
+  }
+
+  function loadJimakuData() {
+    let bvid = getBvid();
+    return new Promise((resolve, reject) => {
       ajaxGet(
         host +
           "/getJimaku?bvid=" +
@@ -116,81 +148,179 @@
           "&jimakuId=" +
           jimakuId,
         (ret) => {
+          resolve("ok");
           const obj = JSON.parse(ret);
           if (obj.code == 200) {
             jimakuData = obj.data;
-            if (jimakuData.id != 0) {
-              setTransTitle(jimakuData.title, jimakuData.author);
-              loadJimaku();
-              setButton();
-            }
           }
         },
         (err) => {
+          reject("err");
           console.log(err);
         }
       );
-      clearInterval(loading);
-    }
-  }, 100);
+    });
+  }
 
-  function setTransTitle(titleName, author) {
-    if (titleName == null || titleName == "") {
+  loadJimakuData().then(() => {
+    const loadJimakuInterval = setInterval(() => {
+      playerVideo = document.querySelector(".bpx-player-video-wrap video");
+      if (playerVideo) {
+        loadJimaku();
+        setSrcObserve();
+        clearInterval(loadJimakuInterval);
+      }
+    }, 50);
+    const switchInputInterval = setInterval(() => {
+      if (!switchInput) {
+        switchInput = document.querySelectorAll("input.bui-switch-input")[2];
+      }
+      if (++count > 20 || !jimakuData?.id) {
+        clearInterval(switchInputInterval);
+        return;
+      }
+      if (switchInput && !switchInput.checked) {
+        clearInterval(switchInputInterval);
+        return;
+      }
+      if (playerVideo && !playerVideo.paused) {
+        playerVideo.pause();
+        clearInterval(switchInputInterval);
+      }
+    }, 100);
+    const searchFormInterval = setInterval(() => {
+      const searchform = document.querySelector("#nav-searchform");
+      if (searchform) {
+        loadTitleAndButton();
+        clearInterval(searchFormInterval);
+      }
+    }, 500);
+  });
+
+  function loadJimaku() {
+    if (jimakuWrap || !jimakuData.detail?.length) {
       return;
     }
-    if (author == null || author == "") {
-      author = "匿名";
-    }
-    const playerWrap = document.getElementById("playerWrap");
-    const newTitleTrans = document.createElement("div");
-    newTitleTrans.textContent = titleName + " 【@" + author + "】";
-    newTitleTrans.style.padding = "10px";
-    newTitleTrans.id = "trans-title";
-    playerWrap.insertAdjacentElement("afterend", newTitleTrans);
+    setJimaku();
+    setObserve();
+    setJimakuEvent();
   }
 
   function setJimaku() {
-    const jimaku = document.createElement("span");
-    const jimakuWrap = document.createElement("div");
-    const player = document.querySelector(
-      "#bilibili-player > div > div > div.bpx-player-primary-area > div.bpx-player-video-area > div.bpx-player-video-perch > div"
-    );
+    jimaku = document.createElement("span");
+    jimakuWrap = document.createElement("div");
     jimaku.id = "jimaku";
-    jimakuWrap.id = "jimaku-wrap";
-    player.insertBefore(jimakuWrap, player.firstChild);
-    jimakuWrap.appendChild(jimaku);
     jimaku.style.fontSize = jimakuSize + "px";
+    jimakuWrap.id = "jimaku-wrap";
+    jimakuWrap.appendChild(jimaku);
+    playerVideo.insertAdjacentElement("afterend", jimakuWrap);
+  }
+
+  function setSrcObserve() {
+    const observer = new MutationObserver((mutationsList) => {
+      mutationsList.forEach((mutation) => {
+        if (mutation.attributeName == "src") {
+          const src = playerVideo.getAttribute("src");
+          if (src != null && src.length > 0) {
+            loadJimakuData().then(() => {
+              loadJimaku();
+              loadTitleAndButton();
+            });
+          }
+        }
+      });
+    });
+    observer.observe(playerVideo, {
+      attributes: true,
+      attributeFilter: ["src"],
+    });
+  }
+  function setObserve() {
     const playerContainer = document.querySelector(".bpx-player-container");
     const observer = new MutationObserver((mutationsList) => {
       mutationsList.forEach((mutation) => {
-        if (
-          mutation.type === "attributes" &&
-          mutation.attributeName === "data-screen"
-        ) {
-          const newValue = playerContainer.getAttribute("data-screen");
-          if (newValue == "full") {
-            jimaku.style.fontSize = "30px";
-            jimakuWrap.style.top = "70px";
-          } else if (newValue == "normal") {
-            jimakuWrap.style.top = "15px";
+        if (mutation.attributeName == "data-screen") {
+          const screen = playerContainer.getAttribute("data-screen");
+          if (screen == "full") {
+            jimaku.style.fontSize = jimakuSize * 1.8 + "px";
+          } else if (screen == "normal") {
             jimaku.style.fontSize = jimakuSize + "px";
           } else {
+          }
+        } else if (mutation.attributeName == "data-ctrl-hidden") {
+          const hidden = playerContainer.getAttribute("data-ctrl-hidden");
+          const screen = playerContainer.getAttribute("data-screen");
+          if (hidden == "true") {
+            jimakuWrap.style.bottom = "18px";
+          } else {
+            jimakuWrap.style.bottom = screen == "normal" ? "78px" : "95px";
           }
         }
       });
     });
     observer.observe(playerContainer, {
       attributes: true,
-      attributeFilter: ["data-screen"],
+      attributeFilter: ["data-screen", "data-ctrl-hidden"],
     });
   }
 
+  function setJimakuEvent() {
+    playerVideo.addEventListener("timeupdate", () => {
+      const currentTime = playerVideo.currentTime - parseFloat(jimakuDelay);
+      const timeJumpThreshold = 1.0;
+      if (Math.abs(currentTime - lastTime) > timeJumpThreshold) {
+        lastIndex = -1;
+      }
+      if (lastIndex !== -1) {
+        const lastItem = jimakuData.detail[lastIndex];
+        if (currentTime >= lastItem.s && currentTime <= lastItem.e) {
+          lastTime = currentTime;
+          return;
+        }
+      }
+      const index = findSubtitleIndex(currentTime);
+      if (index !== -1) {
+        lastIndex = index;
+        const item = jimakuData.detail[index];
+        jimaku.textContent = item.t;
+      } else {
+        lastIndex = -1;
+        jimaku.textContent = "";
+      }
+      lastTime = currentTime;
+    });
+  }
+
+  function loadTitleAndButton() {
+    setTransTitle();
+    setButton();
+  }
+  function setTransTitle() {
+    if (!jimakuData?.title) {
+      newTitleTrans && (newTitleTrans.textContent = "");
+      return;
+    }
+    if (!newTitleTrans) {
+      newTitleTrans = document.createElement("div");
+    }
+    const playerWrap = document.querySelector("#playerWrap");
+    newTitleTrans.textContent =
+      jimakuData.title + " 【@" + (jimakuData.author || "匿名") + "】";
+    newTitleTrans.style.padding = "10px";
+    newTitleTrans.id = "trans-title";
+    playerWrap.insertAdjacentElement("afterend", newTitleTrans);
+  }
+
   function setButton() {
+    if (!jimakuData?.id || buttonGroup) {
+      return;
+    }
     const addElement =
-      document.getElementById("trans-title") ||
-      document.getElementById("playerWrap");
-    const buttonGroup = document.createElement("div");
+      document.querySelector("#trans-title") ||
+      document.querySelector("#playerWrap");
+    buttonGroup = document.createElement("div");
     buttonGroup.id = "jimaku-button-group";
+
     const turn = document.createElement("button");
     turn.setAttribute("data-state", "ON");
     turn.textContent = turn.getAttribute("data-state");
@@ -203,13 +333,13 @@
         turn.setAttribute("data-state", "ON");
       }
       turn.textContent = turn.getAttribute("data-state");
-      const jimakuWrap = document.getElementById("jimaku-wrap");
       if (jimakuWrap.style.display == "none") {
         jimakuWrap.style.display = "block";
       } else {
         jimakuWrap.style.display = "none";
       }
     });
+
     const jimakuSizeShow = document.createElement("span");
     jimakuSizeShow.textContent = jimakuSize + "px";
     const fontSizeRange = document.createElement("input");
@@ -217,7 +347,6 @@
     fontSizeRange.min = "12";
     fontSizeRange.max = "30";
     fontSizeRange.value = jimakuSize;
-    const jimaku = document.getElementById("jimaku");
     fontSizeRange.addEventListener("input", () => {
       const fontSize = fontSizeRange.value + "px";
       jimakuSizeShow.textContent = fontSize;
@@ -237,75 +366,13 @@
     delayTimeRange.addEventListener("input", () => {
       const delayTimeRangeValue = delayTimeRange.value;
       delayTimeShow.textContent = delayTimeRangeValue + "s";
-      GM_setValue("jimaku-delay", delayTimeRangeValue);
     });
+
     buttonGroup.appendChild(turn);
     buttonGroup.appendChild(fontSizeRange);
     buttonGroup.appendChild(jimakuSizeShow);
     buttonGroup.appendChild(delayTimeRange);
     buttonGroup.appendChild(delayTimeShow);
     addElement.insertAdjacentElement("afterend", buttonGroup);
-  }
-
-  function findSubtitleIndex(currentTime) {
-    let left = 0;
-    let right = jimakuData.detail.length - 1;
-    while (left <= right) {
-      const mid = Math.floor((left + right) / 2);
-      const item = jimakuData.detail[mid];
-      if (currentTime >= item.s && currentTime <= item.e) {
-        return mid;
-      } else if (currentTime < item.s) {
-        right = mid - 1;
-      } else {
-        left = mid + 1;
-      }
-    }
-    return -1;
-  }
-
-  function loadJimaku() {
-    if (jimakuData.detail == null || jimakuData.detail.length == 0) {
-      return;
-    }
-    setJimaku();
-    const player = document.querySelector(
-      "#bilibili-player > div > div > div.bpx-player-primary-area > div.bpx-player-video-area > div.bpx-player-video-perch > div > video"
-    );
-    player.addEventListener("timeupdate", () => {
-      console.log("====" + player.currentTime);
-      const currentTime = player.currentTime - parseFloat(jimakuDelay);
-      console.log("----" + currentTime);
-      const timeJumpThreshold = 1.0;
-      if (Math.abs(currentTime - lastTime) > timeJumpThreshold) {
-        lastIndex = -1;
-      }
-      if (lastIndex !== -1) {
-        const lastItem = jimakuData.detail[lastIndex];
-        if (currentTime >= lastItem.s && currentTime <= lastItem.e) {
-          lastTime = currentTime;
-          return;
-        }
-      }
-      const index = findSubtitleIndex(currentTime);
-      const jimaku = document.querySelector("#jimaku");
-      if (index !== -1) {
-        lastIndex = index;
-        const item = jimakuData.detail[index];
-        jimaku.textContent = item.t;
-      } else {
-        lastIndex = -1;
-        jimaku.textContent = "";
-      }
-      lastTime = currentTime;
-    });
-  }
-  function getJimakuId() {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get("jimakuId");
-  }
-  function getBvid() {
-    const match = window.location.href.match(/\/video\/(BV\w+)\//);
-    return match ? match[1] : "";
   }
 })();
